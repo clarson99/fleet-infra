@@ -6,8 +6,9 @@ metadata:
   namespace: flux-system
 spec:
   interval: 5m0s
+  path: "./clusters/my-cluster/common-resources"
+  prune: true
   sourceRef:
     kind: GitRepository
     name: flux-system
-  path: "./clusters/my-cluster/common-resources"
-  prune: true
+
