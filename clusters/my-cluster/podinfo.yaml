@@ -22,7 +22,7 @@ spec:
   sourceRef:
     kind: GitRepository
     name: podinfo
-  targetNamespace: podinfo
+  targetNamespace: apps
   patches:
     - patch: |-
         apiVersion: apps/v1
@@ -30,7 +30,7 @@ spec:
         metadata:
           name: podinfo
         spec:
-          replicas: 1
+          replicas: 2
       target:
         kind: Deployment
         name: podinfo
