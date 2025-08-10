@@ -1,0 +1,186 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: namespace-controller
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: namespace-controller
+  namespace: namespace-controller
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: namespace-controller
+rules:
+- apiGroups: [""]
+  resources: ["namespaces"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["configmaps", "secrets"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: namespace-controller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: namespace-controller
+subjects:
+- kind: ServiceAccount
+  name: namespace-controller
+  namespace: namespace-controller
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: common-configmap-template
+  namespace: namespace-controller
+data:
+  configmap.yaml: |
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: CommonConfigMap
+    data:
+      environment: "shared"
+      cluster: "my-cluster"
+      managed-by: "namespace-controller"
+      created-at: "2025-01-09"
+      description: "Common configuration shared across all namespaces"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: common-secret-template
+  namespace: namespace-controller
+type: Opaque
+data:
+  secret.yaml: |
+    YXBpVmVyc2lvbjogdjEKa2luZDogU2VjcmV0Cm1ldGFkYXRhOgogIG5hbWU6IENvbW1vblNlY3JldAp0eXBlOiBPcGFxdWUKZGF0YToKICBzaGFyZWQta2V5OiBjMmhoY21Wa0xYTmxZM0psZEMxclpYaz0gICMgInNoYXJlZC1zZWNyZXQta2V5IgogIGNsdXN0ZXItaWQ6IGJYa3RZMngxYzNSbGNnPT0gICMgIm15LWNsdXN0ZXIiCiAgZW52aXJvbm1lbnQ6IGMyaGhjbVZrICMgInNoYXJlZCIKICBtYW5hZ2VkLWJ5OiBibUZ0WlhOd1lXTmxMV052Ym5SeWIyeHNaWEk9ICMgIm5hbWVzcGFjZS1jb250cm9sbGVyIg==
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: namespace-controller
+  namespace: namespace-controller
+  labels:
+    app: namespace-controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: namespace-controller
+  template:
+    metadata:
+      labels:
+        app: namespace-controller
+    spec:
+      serviceAccountName: namespace-controller
+      containers:
+      - name: controller
+        image: bitnami/kubectl:latest
+        command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+          
+          # Function to create resources in namespace
+          create_common_resources() {
+            local namespace=$1
+            echo "Creating common resources in namespace: $namespace"
+            
+            # Create CommonConfigMap
+            kubectl apply -f - <<EOF
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: CommonConfigMap
+            namespace: $namespace
+            labels:
+              managed-by: namespace-controller
+              auto-created: "true"
+          data:
+            environment: "shared"
+            cluster: "my-cluster"
+            managed-by: "namespace-controller"
+            created-at: "$(date -Iseconds)"
+            description: "Common configuration shared across all namespaces"
+            namespace: "$namespace"
+          EOF
+            
+            # Create CommonSecret
+            kubectl apply -f - <<EOF
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: CommonSecret
+            namespace: $namespace
+            labels:
+              managed-by: namespace-controller
+              auto-created: "true"
+          type: Opaque
+          data:
+            shared-key: $(echo -n "shared-secret-key" | base64 -w 0)
+            cluster-id: $(echo -n "my-cluster" | base64 -w 0)
+            environment: $(echo -n "shared" | base64 -w 0)
+            managed-by: $(echo -n "namespace-controller" | base64 -w 0)
+            namespace: $(echo -n "$namespace" | base64 -w 0)
+          EOF
+          }
+          
+          # Create resources in existing namespaces
+          echo "Creating common resources in existing namespaces..."
+          for ns in $(kubectl get namespaces -o jsonpath='{.items[*].metadata.name}'); do
+            # Skip system namespaces that shouldn't have these resources
+            if [[ "$ns" != "kube-"* ]] && [[ "$ns" != "namespace-controller" ]]; then
+              create_common_resources "$ns"
+            fi
+          done
+          
+          # Watch for new namespaces and create resources
+          echo "Watching for new namespaces..."
+          kubectl get namespaces --watch --no-headers | while read line; do
+            namespace=$(echo "$line" | awk '{print $1}')
+            action=$(echo "$line" | awk '{print $2}')
+            
+            if [[ "$action" == "ADDED" ]] && [[ "$namespace" != "kube-"* ]] && [[ "$namespace" != "namespace-controller" ]]; then
+              echo "New namespace detected: $namespace"
+              sleep 5  # Wait a bit for namespace to be fully ready
+              create_common_resources "$namespace"
+            fi
+          done
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+        env:
+        - name: KUBECTL_VERSION
+          value: "latest"
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: namespace-controller
+  namespace: namespace-controller
+  labels:
+    app: namespace-controller
+spec:
+  selector:
+    app: namespace-controller
+  ports:
+  - port: 8080
+    targetPort: 8080
+    name: metrics

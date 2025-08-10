@@ -1,0 +1,22 @@
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: config-connector
+  namespace: flux-system
+spec:
+  interval: 5m0s
+  path: "./config"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: config-connector
+  targetNamespace: config-connector-system
+  patches:
+    - patch: |
+        - op: replace
+          path: /metadata/namespace
+          value: config-connector-system
+      target:
+        kind: Namespace
+        name: config-connector-system
