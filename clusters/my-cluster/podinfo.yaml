@@ -23,3 +23,14 @@ spec:
     kind: GitRepository
     name: podinfo
   targetNamespace: podinfo
+  patches:
+    - patch: |-
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: podinfo
+        spec:
+          replicas: 1
+      target:
+        kind: Deployment
+        name: podinfo
