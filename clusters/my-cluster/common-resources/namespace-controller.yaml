@@ -38,34 +38,6 @@ subjects:
   name: namespace-controller
   namespace: namespace-controller
 ---
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: common-configmap-template
-  namespace: namespace-controller
-data:
-  configmap.yaml: |
-    apiVersion: v1
-    kind: ConfigMap
-    metadata:
-      name: CommonConfigMap
-    data:
-      environment: "shared"
-      cluster: "my-cluster"
-      managed-by: "namespace-controller"
-      created-at: "2025-01-09"
-      description: "Common configuration shared across all namespaces"
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: common-secret-template
-  namespace: namespace-controller
-type: Opaque
-data:
-  secret.yaml: |
-    YXBpVmVyc2lvbjogdjEKa2luZDogU2VjcmV0Cm1ldGFkYXRhOgogIG5hbWU6IENvbW1vblNlY3JldAp0eXBlOiBPcGFxdWUKZGF0YToKICBzaGFyZWQta2V5OiBjMmhoY21Wa0xYTmxZM0psZEMxclpYaz0gICMgInNoYXJlZC1zZWNyZXQta2V5IgogIGNsdXN0ZXItaWQ6IGJYa3RZMngxYzNSbGNnPT0gICMgIm15LWNsdXN0ZXIiCiAgZW52aXJvbm1lbnQ6IGMyaGhjbVZrICMgInNoYXJlZCIKICBtYW5hZ2VkLWJ5OiBibUZ0WlhOd1lXTmxMV052Ym5SeWIyeHNaWEk9ICMgIm5hbWVzcGFjZS1jb250cm9sbGVyIg==
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -169,18 +141,3 @@ spec:
         - name: KUBECTL_VERSION
           value: "latest"
       restartPolicy: Always
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: namespace-controller
-  namespace: namespace-controller
-  labels:
-    app: namespace-controller
-spec:
-  selector:
-    app: namespace-controller
-  ports:
-  - port: 8080
-    targetPort: 8080
-    name: metrics

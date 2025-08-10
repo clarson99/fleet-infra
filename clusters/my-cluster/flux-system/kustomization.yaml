@@ -3,7 +3,4 @@ kind: Kustomization
 resources:
 - gotk-components.yaml
 - gotk-sync.yaml
-- ../config-connector-source.yaml
-- ../config-connector-kustomization.yaml
-- ../common-resources-config.yaml
-- ../namespace-controller.yaml
+- ../common-resources-kustomization.yaml
